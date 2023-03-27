@@ -4,6 +4,7 @@ using System.Text;
 using ImGuiNET;
 using MapStudio.UI;
 using GLFrameworkEngine;
+using UIFramework;
 
 namespace MapStudio.UI
 {
@@ -13,6 +14,11 @@ namespace MapStudio.UI
         public static int MaterialAnims = 0;
 
         public override string Name => TranslationSource.GetText("STATS");
+
+        public StatisticsWindow()
+        {
+            Opened = false;
+        }
 
         public override void Render()
         {

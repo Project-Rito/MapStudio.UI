@@ -15,27 +15,103 @@ namespace MapStudio.UI
     {
         static Dictionary<string, string> selectedTabMenus = new Dictionary<string, string>();
 
-        public static void ComboScrollable<T>(string key, string text, ref T selectedItem, Action propertyChanged = null, ImGuiComboFlags flags = ImGuiComboFlags.None, bool translate = false) {
-            ComboScrollable(key, text, ref selectedItem, Enum.GetValues(typeof(T)).Cast<T>(), propertyChanged, flags, translate);
+        public static bool EyeToggle(string label, ref bool value, Vector2 size)
+        {
+            var texColor = ImGui.GetStyle().Colors[(int)ImGuiCol.Text];
+            if (!value)
+                 texColor = ImGui.GetStyle().Colors[(int)ImGuiCol.TextDisabled];
+
+            ImGui.PushStyleColor(ImGuiCol.ButtonActive, new Vector4(0));
+            ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Vector4(0));
+            ImGui.PushStyleColor(ImGuiCol.Button, new Vector4(0));
+            ImGui.PushStyleColor(ImGuiCol.Text, texColor);
+
+            ImGui.Button(value ? "   \uf06e   " : "   \uf070   " + $"##{label}", size);
+            bool clicked = ImGui.IsItemClicked(0);
+            if (clicked)
+                value = !value;
+
+            ImGui.PopStyleColor(4);
+
+            return clicked;
         }
 
-        public static void ComboScrollable<T>(string key, string text, ref T selectedItem, IEnumerable<T> items, Action propertyChanged = null, ImGuiComboFlags flags = ImGuiComboFlags.None, bool translate = false)
+        public static bool ToggleBox(string label, ref bool value)
+        {
+            var color = value ? new Vector4(0, 0.5f, 0, 1) : new Vector4(0.5f, 0, 0, 1);
+            ImGui.PushStyleColor(ImGuiCol.FrameBg, color);
+            ImGui.PushStyleColor(ImGuiCol.FrameBgActive, color);
+            ImGui.PushStyleColor(ImGuiCol.FrameBgHovered, color);
+
+            bool edited = ImGui.Checkbox(label, ref value);
+
+            ImGui.PopStyleColor(3);
+            return edited;
+        }
+
+        public static void ColorDialog(Vector4 color, Action<Vector4> colorChanged)
+        {
+            Vector4 defaultColor = new Vector4(color.X, color.Y, color.Z, color.W);
+
+            DialogHandler.Show("Color Dialog", () =>
+            {
+                if (ImGui.ColorPicker4("colorPicker", ref color, ImGuiColorEditFlags.AlphaBar | ImGuiColorEditFlags.AlphaPreviewHalf))
+                    colorChanged?.Invoke(color);
+
+                var size = new Vector2(ImGui.GetWindowWidth() / 2, 23);
+                if (ImGui.Button(TranslationSource.GetText("CANCEL"), size))
+                    DialogHandler.ClosePopup(false);
+
+                ImGui.SameLine();
+                if (ImGui.Button(TranslationSource.GetText("OK"), size))
+                    DialogHandler.ClosePopup(true);
+
+            }, (ok) =>
+            {
+                if (!ok)
+                    colorChanged?.Invoke(defaultColor);
+            });
+        }
+
+        public static bool MenuItemTooltip(string name, string tooltip, string shortcut = "")
+        {
+            bool item = ImGui.MenuItem(name, shortcut);
+
+            if (ImGui.IsItemHovered())
+            {
+                ImGui.BeginTooltip();
+                ImGui.Text(TranslationSource.GetText(tooltip));
+                if (!string.IsNullOrEmpty(shortcut)) {
+                    ImGui.Text($"Shortcut: {shortcut}");
+                }
+                ImGui.EndTooltip();
+            }
+            return item;
+        }
+
+        public static bool ComboScrollable<T>(string key, string text, ref T selectedItem, Action propertyChanged = null, ImGuiComboFlags flags = ImGuiComboFlags.None) {
+            return ComboScrollable(key, text, ref selectedItem, Enum.GetValues(typeof(T)).Cast<T>(), propertyChanged, flags);
+        }
+
+        public static bool ComboScrollable<T>(string key, string text, ref T selectedItem, IEnumerable<T> items, Action propertyChanged = null, ImGuiComboFlags flags = ImGuiComboFlags.None)
         {
             if (ImGui.BeginCombo(key, text, flags)) //Check for combo box popup and add items
             {
                 if (items != null) {
-                    foreach (T item in items)
-                    {
-                        bool isSelected = item.Equals(selectedItem);
+                foreach (T item in items)
+                {
+                    bool isSelected = item.Equals(selectedItem);
                         if (ImGui.Selectable(translate ? TranslationSource.GetText(item.ToString()) : item.ToString(), isSelected)) {
-                            selectedItem = item;
-                            propertyChanged?.Invoke();
-                        }
-                        if (isSelected)
-                            ImGui.SetItemDefaultFocus();
+                        selectedItem = item;
+                        propertyChanged?.Invoke();
                     }
+                    if (isSelected)
+                        ImGui.SetItemDefaultFocus();
+                }
                 }
                 ImGui.EndCombo();
+
+                return true;
             }
             if (ImGui.IsItemHovered()) //Check for combo box hover
             {
@@ -58,9 +134,12 @@ namespace MapStudio.UI
                     { //Shift downwards if possible
                         selectedItem = list[index - 1];
                         propertyChanged?.Invoke();
+
+                        return true;
                     }
                 }
             }
+            return false;
         }
 
         public static TransformOutput Transform(OpenTK.Vector3 position, OpenTK.Vector3 rotation, OpenTK.Vector3 scale)
@@ -73,9 +152,11 @@ namespace MapStudio.UI
 
         public static TransformOutput Transform(Vector3 position, Vector3 rotation, Vector3 scale)
         {
-            bool edited0 = ImGui.InputFloat3("Translate", ref position);
-            bool edited1 = ImGui.InputFloat3("Rotation", ref rotation);
-            bool edited2 = ImGui.InputFloat3("Scale", ref scale);
+            bool edited0 = ImGui.DragFloat3("Translate", ref position);
+            bool edited1 = ImGui.DragFloat3("Rotation", ref rotation);
+            bool edited2 = ImGui.DragFloat3("Scale", ref scale);
+
+
             return new TransformOutput()
             {
                 Position = position,
@@ -276,6 +357,31 @@ namespace MapStudio.UI
             ImGui.PopStyleVar();
         }
 
+        public static bool ButtonToggle(string label, ref bool isValue, Vector2 size)
+        {
+            if (isValue)
+            {
+                var selectionColor = ImGui.GetStyle().Colors[(int)ImGuiCol.ButtonHovered];
+                ImGui.PushStyleColor(ImGuiCol.Button, selectionColor);
+            }
+            else
+                ImGui.PushStyleColor(ImGuiCol.Button, new Vector4());
+
+          /*  ImGui.PushStyleColor(ImGuiCol.Button, color);
+            ImGui.PushStyleColor(ImGuiCol.ButtonHovered, color);
+            ImGui.PushStyleColor(ImGuiCol.ButtonActive, color);*/
+
+            bool clicked = ImGui.Button(label, size);
+            ImGui.PopStyleColor(1);
+
+            if (clicked)
+            {
+                isValue = !isValue;
+                return true;
+            }
+            return false;
+        }
+
         public static bool ColorButtonToggle(string label, ref bool isValue, Vector4 colorDisabled, Vector4 colorEnabled, Vector2 size)
         {
             Vector4 color = (isValue ? colorEnabled : colorDisabled);
@@ -350,6 +456,7 @@ namespace MapStudio.UI
                 isValid = false;
 
             bool clicked = ImGui.Button($"  -  ##{label}");
+            bool edited = false;
 
             ImGui.SameLine();
             if (!isValid)
@@ -365,6 +472,16 @@ namespace MapStudio.UI
                 ImGui.PopStyleColor();
             }
 
+            if (ImGui.BeginPopupContextItem($"{label}_clear", ImGuiPopupFlags.MouseButtonRight))
+            {
+                if (ImGui.MenuItem(TranslationSource.GetText("CLEAR")))
+                {
+                    path = "";
+                    edited = true;
+                }
+                ImGui.EndPopup();
+            }
+
             if (clicked)
             {
                 var dialog = new ImguiFolderDialog();
@@ -374,7 +491,51 @@ namespace MapStudio.UI
                     return true;
                 }
             }
-            return false;
+            return edited;
+        }
+
+        public static bool FileSelector(string label, ref string path, string[] extensions)
+        {
+            bool clicked = ImGui.Button($"  -  ##{label}");
+            bool edited = false;
+
+            ImGui.SameLine();
+            if (!System.IO.File.Exists(path))
+            {
+                ImGui.PushStyleColor(ImGuiCol.FrameBg, new Vector4(0.5f, 0, 0, 1)); 
+                ImGui.InputText(label, ref path, 500, ImGuiInputTextFlags.ReadOnly);
+                ImGui.PopStyleColor();
+            }
+            else
+            {
+                ImGui.PushStyleColor(ImGuiCol.FrameBg, new Vector4(0, 0.5f, 0, 1));
+                ImGui.InputText(label, ref path, 500, ImGuiInputTextFlags.ReadOnly);
+                ImGui.PopStyleColor();
+            }
+
+
+            if (ImGui.BeginPopupContextItem($"{label}_clear", ImGuiPopupFlags.MouseButtonRight))
+            {
+                if (ImGui.MenuItem(TranslationSource.GetText("CLEAR")))
+                {
+                    path = "";
+                    edited = true;
+                }
+                ImGui.EndPopup();
+            }
+
+            if (clicked)
+            {
+                var dialog = new ImguiFileDialog();
+                foreach (var ext in extensions)
+                    dialog.AddFilter(ext, ext);
+                if (dialog.ShowDialog())
+                {
+                    path = dialog.FilePath;
+                    edited = true;
+                }
+            }
+            return edited;
         }
     }
 }

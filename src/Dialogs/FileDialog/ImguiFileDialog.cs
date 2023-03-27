@@ -40,6 +40,11 @@ namespace MapStudio.UI
         /// </summary>
         public string FileName { get; set; }
 
+        /// <summary>
+        /// Determines to allow multi selection or not.
+        /// </summary>
+        public bool MultiSelect = false;
+
         string dialogKey;
 
         readonly List<FileFilter> filters = new List<FileFilter>();
@@ -67,6 +72,10 @@ namespace MapStudio.UI
         public bool ShowDialog(string key = "", bool multiSelect = false)
         {
             dialogKey = key;
+
+            string desc = "";
+            if (filters.Count > 0)
+                desc = $"{filters[0].Description} (*{filters[0].Extension})";
 
             if (!SelectedFilters.ContainsKey(key))
                 SelectedFilters.Add(key, 0);

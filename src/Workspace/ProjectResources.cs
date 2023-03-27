@@ -38,10 +38,13 @@ namespace MapStudio.UI
             ProjectFile = ProjectFile.Load(filePath);
             ProjectFolder = Path.GetDirectoryName(filePath);
 
+            string dir = ProjectFile.WorkingDirectory;
+
             foreach (var asset in ProjectFile.FileAssets)
-                workspace.LoadFileFormat($"{ProjectFolder}/{asset}", true);
+                workspace.LoadFileFormat(Path.Combine(ProjectFolder,asset), true);
 
             ProjectFile.LoadSettings(context, workspace);
+            ProjectFile.WorkingDirectory = dir;
         }
 
         public void SaveProject(string filePath, GLContext context, Workspace workspace)
@@ -79,12 +82,14 @@ namespace MapStudio.UI
         }
         public void SaveFileData(IFileFormat file)
         {
-            Toolbox.Core.IO.STFileSaver.SaveFileFormat(file, file.FileInfo.FilePath);
-            StudioLogger.WriteLine(string.Format(TranslationSource.GetText("SAVED_FILE"), file.FileInfo.FilePath));
+                Toolbox.Core.IO.STFileSaver.SaveFileFormat(file, file.FileInfo.FilePath);
+                StudioLogger.WriteLine(string.Format(TranslationSource.GetText("SAVED_FILE"), file.FileInfo.FilePath));
+            }
         }
 
         public void AddFile(IFileFormat file) {
-            Files.Add(file);
+            if (!Files.Contains(file))
+                Files.Add(file);
         }
     }
 }

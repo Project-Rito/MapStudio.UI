@@ -40,6 +40,10 @@ namespace MapStudio.UI
         public static ImFontPtr DefaultFont;
         public static ImFontPtr DefaultFontBold;
 
+        public static ImFontPtr FontOperator;
+        public static ImFontPtr FontIconSolid;
+        public static ImFontPtr FontIconRegular;
+
         /// <summary>
         /// Constructs a new ImGuiController.
         /// </summary>
@@ -50,8 +54,15 @@ namespace MapStudio.UI
 
             var context = ImGui.CreateContext();
 
+           /* unsafe
+            {
+                imnodesNET.imnodes.SetImGuiContext((IntPtr)context.NativePtr);
+                imnodesNET.imnodes.Initialize();
+            }*/
+
             ImGui.SetCurrentContext(context);
             var io = ImGui.GetIO();
+            io.ConfigFlags |= ImGuiConfigFlags.DockingEnable;
 
             //Load the main font file
             unsafe
@@ -63,7 +74,7 @@ namespace MapStudio.UI
                 (*nativeConfig).RasterizerMultiply = 1f;
                 (*nativeConfig).GlyphOffset = new System.Numerics.Vector2(0);
 
-                io.Fonts.AddFontFromFileTTF($"{Runtime.ExecutableDir}/Lib/Fonts/Font.ttf", 16, nativeConfig);
+                io.Fonts.AddFontFromFileTTF(Path.Combine(Runtime.ExecutableDir,"Lib","Fonts","Font.ttf"), 16, nativeConfig);
             }
 
             //Merge icon fonts. Important that this goes after the main target font being used so it can be merged.
@@ -76,13 +87,13 @@ namespace MapStudio.UI
             char max = Convert.ToChar(0xe0fe);
             float fontSize = 16.0f;
 
-            AddFontFromFileTTF($"{Runtime.ExecutableDir}/Lib/Fonts/OpenFontIcons.ttf", fontSize, config, new[] { min, max, (char)0 });
-            AddFontFromFileTTF($"{Runtime.ExecutableDir}/Lib/Fonts/fa-regular-400.ttf", fontSize, config, new[] { (char)0xe005, (char)0xf8ff, (char)0 });
-            AddFontFromFileTTF($"{Runtime.ExecutableDir}/Lib/Fonts/fa-solid-900.ttf", fontSize, config, new[] { (char)0xe005, (char)0xf8ff, (char)0 });
+            AddFontFromFileTTF(Path.Combine(Runtime.ExecutableDir,"Lib","Fonts","OpenFontIcons.ttf"), fontSize, config, new[] { min, max, (char)0 });
+            FontIconSolid = AddFontFromFileTTF(Path.Combine(Runtime.ExecutableDir,"Lib","Fonts","fa-solid-900.ttf"), fontSize, config, new[] { (char)0xe005, (char)0xf8ff, (char)0 });
+            FontIconRegular = AddFontFromFileTTF(Path.Combine(Runtime.ExecutableDir,"Lib","Fonts","fa-regular-400.ttf"), fontSize, config, new[] { (char)0xe005, (char)0xf8ff, (char)0 });
 
             //Font needs a slight shift.
             config.GlyphMinAdvanceX = 12;
-            AddFontFromFileTTF($"{Runtime.ExecutableDir}/Lib/Fonts/NotoSansCJKjp-Medium.otf", fontSize, config, io.Fonts.GetGlyphRangesJapanese());
+            AddFontFromFileTTF(Path.Combine(Runtime.ExecutableDir,"Lib","Fonts","NotoSansCJKjp-Medium.otf"), fontSize, config, io.Fonts.GetGlyphRangesJapanese());
 
             //Store the default font for monospaced UI (ie hex viewer)
             DefaultFont = io.Fonts.AddFontDefault();
@@ -96,9 +107,10 @@ namespace MapStudio.UI
                 (*nativeConfig).RasterizerMultiply = 1f;
                 (*nativeConfig).GlyphOffset = new System.Numerics.Vector2(0);
 
-                DefaultFontBold = io.Fonts.AddFontFromFileTTF($"{Runtime.ExecutableDir}/Lib/Fonts/FontBold.ttf", 16, nativeConfig);
+                DefaultFontBold = io.Fonts.AddFontFromFileTTF(Path.Combine(Runtime.ExecutableDir,"Lib","Fonts","FontBold.ttf"), 16, nativeConfig);
+                FontOperator = io.Fonts.AddFontFromFileTTF(Path.Combine(Runtime.ExecutableDir, "Lib", "Fonts", "FontBold.ttf"), 40, nativeConfig);
             }
-            
+
 
             io.BackendFlags |= ImGuiBackendFlags.RendererHasVtxOffset;
 
@@ -295,15 +307,45 @@ void main()
         KeyboardState PrevKeyboardState;
         readonly List<char> PressedChars = new List<char>();
 
+        static Vector2 FullPosition;
+        static Vector2 FullPositionHidden;
+
+        public static bool _hideCursorMode = false;
+
+        public static void HideCursorInfiniteScroll()
+        {
+          //  FullPositionHidden = FullPosition;
+          //  _hideCursorMode = true;
+          //  GLFrameworkEngine.MouseEventInfo.MouseCursor = GLFrameworkEngine.MouseEventInfo.Cursor.None;
+        }
+
+        public static void SetNormalCursor()
+        {
+           /* if (!_hideCursorMode)
+                return;
+
+            _hideCursorMode = false;
+            GLFrameworkEngine.MouseEventInfo.MouseCursor = GLFrameworkEngine.MouseEventInfo.Cursor.Arrow;
+            Mouse.SetPosition(FullPositionHidden.X, FullPositionHidden.Y);*/
+        }
+
         private void UpdateImGuiInput(GameWindow wnd)
         {
             if (!wnd.Focused)
                 return;
 
+            if (GLFrameworkEngine.MouseEventInfo.CursorHiddenMode && !_hideCursorMode)
+                HideCursorInfiniteScroll();
+            else if (!GLFrameworkEngine.MouseEventInfo.CursorHiddenMode && _hideCursorMode)
+                SetNormalCursor();
+
             ImGuiIOPtr io = ImGui.GetIO();
 
             MouseState MouseState = Mouse.GetCursorState();
             KeyboardState KeyboardState = Keyboard.GetState();
+
+           // if (_hideCursorMode)
+             //   Mouse.SetPosition(FullPositionHidden.X, FullPositionHidden.Y);
 
             io.MouseDown[0] = MouseState.LeftButton == ButtonState.Pressed;
             io.MouseDown[1] = MouseState.RightButton == ButtonState.Pressed;
@@ -331,6 +373,7 @@ void main()
             io.KeyAlt = KeyboardState.IsKeyDown(Key.AltLeft) || KeyboardState.IsKeyDown(Key.AltRight);
             io.KeyShift = KeyboardState.IsKeyDown(Key.ShiftLeft) || KeyboardState.IsKeyDown(Key.ShiftRight);
             io.KeySuper = KeyboardState.IsKeyDown(Key.WinLeft) || KeyboardState.IsKeyDown(Key.WinRight);
+
 
             PrevMouseState = MouseState;
             PrevKeyboardState = KeyboardState;
@@ -365,6 +408,7 @@ void main()
             io.KeyMap[(int)ImGuiKey.X] = (int)Key.X;
             io.KeyMap[(int)ImGuiKey.Y] = (int)Key.Y;
             io.KeyMap[(int)ImGuiKey.Z] = (int)Key.Z;
+            io.KeyMap[(int)ImGuiKey.Space] = (int)Key.Space;
         }
 
         private void RenderImDrawData(ImDrawDataPtr draw_data)

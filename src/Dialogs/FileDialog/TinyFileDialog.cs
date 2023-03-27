@@ -53,6 +53,11 @@ namespace MapStudio.UI
             return tinyfd_messageBox(TranslationSource.GetText("RITO_EDITOR"), message, "ok", "info", 1);
         }
 
+        public static int MessageBoxErrorOk(string message)
+        {
+            return tinyfd_messageBox("Map Studio", message, "ok", "error", 1);
+        }
+
         public static int MessageBoxInfoYesNo(string message)
         {
             return tinyfd_messageBox(TranslationSource.GetText("RITO_EDITOR"), message, "yesno", "question", 2);

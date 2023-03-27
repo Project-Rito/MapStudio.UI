@@ -18,12 +18,19 @@ namespace MapStudio.UI
 
         public STGenericTexture ActiveTexture;
 
+        ImageEditorBackground ImageBackground;
+
+        public ImageEditorViewport(ImageEditor editor)
+        {
+            ImageBackground = new ImageEditorBackground(editor);
+        }
+
         public override void RenderScene()
         {
             var shader = GlobalShaders.GetShader("IMAGE_EDITOR");
             shader.Enable();
 
-            ImageEditorBackground.Draw(ActiveTexture, Width, Height, Camera, DisplayAlpha);
+            ImageBackground.Draw(ActiveTexture, Width, Height, Camera);
         }
 
         public void Reset() {

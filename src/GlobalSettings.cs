@@ -59,6 +59,8 @@ namespace MapStudio.UI
         /// </summary>
         public BoneSettings Bones { get; set; } = new BoneSettings();
 
+        public List<DockSettings> DockedWindows = new List<DockSettings>();
+
         private GLContext _context;
         private Camera _camera;
 
@@ -77,14 +79,17 @@ namespace MapStudio.UI
         /// <returns></returns>
         public static GlobalSettings Load()
         {
-            if (!File.Exists($"{Runtime.ExecutableDir}/ConfigGlobal.json")) { new GlobalSettings().Save(); }
+            if (!File.Exists(Path.Combine(Runtime.ExecutableDir, "ConfigGlobal.json"))) { new GlobalSettings().Save(); }
 
-            var config = JsonConvert.DeserializeObject<GlobalSettings>(File.ReadAllText($"{Runtime.ExecutableDir}/ConfigGlobal.json"), new
+            var config = JsonConvert.DeserializeObject<GlobalSettings>(File.ReadAllText(Path.Combine(Runtime.ExecutableDir, "ConfigGlobal.json")), new
                 JsonSerializerSettings()
             {
                 //If settings get added, don't alter the defaults
                 NullValueHandling = NullValueHandling.Ignore,
             });
+            if (!Directory.Exists(config.Program.ProjectDirectory))
+                config.Program.ResetProjectDir();
+
             return config;
         }
 
@@ -108,6 +113,10 @@ namespace MapStudio.UI
         /// <summary>
         /// Generates a themed icon for the program.
         /// </summary>
+        public void ReloadInput()
+        {
+            InputSettings.INPUT = this.InputSettings;
+        }
         public System.Drawing.Icon ThemeIcon(System.Drawing.Icon originalIcon)
         {
             var theme = ThemeHandler.Themes.FirstOrDefault(x => x.Name == Program.Theme);
@@ -139,7 +148,7 @@ namespace MapStudio.UI
         /// </summary>
         public void Save()
         {
-            File.WriteAllText($"{Runtime.ExecutableDir}/ConfigGlobal.json", JsonConvert.SerializeObject(this, Formatting.Indented));
+            File.WriteAllText(Path.Combine(Runtime.ExecutableDir,"ConfigGlobal.json"), JsonConvert.SerializeObject(this, Formatting.Indented));
             ApplyConfiguration();
         }
 
@@ -218,6 +227,16 @@ namespace MapStudio.UI
             public string Language = "English";
 
             /// <summary>
+            /// The font scale of the program.
+            /// </summary>
+            public float FontScale { get; set; } = 1.0f;
+
+            /// <summary>
+            /// 
+            /// </summary>
+            public bool UseSameWorkspace = false;
+
+            /// <summary>
             /// Gets the current project directory.
             /// </summary>
             public string ProjectDirectory = DefaultProjectPath();
@@ -229,7 +248,27 @@ namespace MapStudio.UI
             static string DefaultProjectPath()
             {
                 string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                return $"{local}/MapStudio/Projects";
+                return Path.Combine(local,"MapStudio");
+            }
+
+            public void ResetProjectDir() {
+                ProjectDirectory = DefaultProjectPath();
+            }
+        }
+
+        public class DockSettings
+        {
+            public string ID;
+            public string ParentWindow;
+            public float SplitRatio;
+            public ImGuiNET.ImGuiDir DockDirection;
+
+            public DockSettings(string id, ImGuiNET.ImGuiDir dir, float ratio, string parentWindow = "")
+            {
+                ID = id;
+                DockDirection = dir;
+                SplitRatio = ratio;
+                ParentWindow = parentWindow;
             }
         }
 
@@ -244,8 +283,15 @@ namespace MapStudio.UI
             /// Toggles displaying bloom in the 3D view.
             /// </summary>
             public bool DisplayBloom { get; set; } = false;
-        }
 
+            /// <summary>
+            /// Toggles displaying bones over models.
+            /// </summary>
+            public bool BoneXRay { get; set; } = false;
+
+            public int ScreenshotWidth { get; set; } = 1920 * 2;
+            public int ScreenshotHeight { get; set; } = 1080 * 2;
+            public bool ScreenshotAlpha { get; set; } = false;
         public class EditorSettings
         {
             public NewObjectLocation NewObjectLocation { get; set; } = NewObjectLocation.Camera;

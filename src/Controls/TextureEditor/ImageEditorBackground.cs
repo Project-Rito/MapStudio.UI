@@ -12,55 +12,33 @@ namespace MapStudio.UI
 {
     public class ImageEditorBackground
     {
-        static VertexBufferObject vao;
+        ImageEditor ImageEditor;
 
-        static int Length;
+        RenderMesh<VertexPositionTexCoord> QuadDrawer;
 
-        static int mipLevel = 0;
-
-        public static void Init()
+        static VertexPositionTexCoord[] Vertices = new VertexPositionTexCoord[]
         {
-            if (Length == 0)
-            {
-                int buffer = GL.GenBuffer();
-                vao = new VertexBufferObject(buffer);
-                vao.AddAttribute(0, 2, VertexAttribPointerType.Float, false, 16, 0);
-                vao.AddAttribute(1, 2, VertexAttribPointerType.Float, false, 16, 8);
-                vao.Initialize();
+            new VertexPositionTexCoord(new Vector3(-1, 1, 0), new Vector2(0, 1)),
+            new VertexPositionTexCoord(new Vector3(-1, -1, 0), new Vector2(0, 0)),
+            new VertexPositionTexCoord(new Vector3(1, 1, 0), new Vector2(1, 1)),
+            new VertexPositionTexCoord(new Vector3(1, -1, 0), new Vector2(1, 0)),
+        };
 
-                Vector2[] positions = new Vector2[4]
-                {
-                    new Vector2(-1.0f, 1.0f),
-                    new Vector2(-1.0f, -1.0f),
-                    new Vector2(1.0f, 1.0f),
-                    new Vector2(1.0f, -1.0f),
-                };
-
-                Vector2[] texCoords = new Vector2[4]
-                {
-                    new Vector2(0.0f, 1.0f),
-                    new Vector2(0.0f, 0.0f),
-                    new Vector2(1.0f, 1.0f),
-                    new Vector2(1.0f, 0.0f),
-                };
-
-                List<float> list = new List<float>();
-                for (int i = 0; i < 4; i++)
-                {
-                    list.Add(positions[i].X);
-                    list.Add(positions[i].Y);
-                    list.Add(texCoords[i].X);
-                    list.Add(texCoords[i].Y);
-                }
-
-                Length = 4;
-
-                float[] data = list.ToArray();
-                GL.BufferData(BufferTarget.ArrayBuffer, sizeof(float) * data.Length, data, BufferUsageHint.StaticDraw);
-            }
+        public ImageEditorBackground(ImageEditor editor) {
+            ImageEditor = editor;
         }
 
-        public static void Draw(STGenericTexture texture, int width, int height, Viewport2D.Camera2D camera, bool showAlpha)
+        public void Init()
+        {
+            if (QuadDrawer == null)
+                QuadDrawer = new RenderMesh<VertexPositionTexCoord>(Vertices, PrimitiveType.TriangleStrip)
+                {
+                    //Disable stat display as it is only used for the 3D viewport
+                    DebugStats = false,
+                };
+        }
+
+        public void Draw(STGenericTexture texture, int width, int height, Viewport2D.Camera2D camera)
         {
             Vector3 scale = new Vector3(1, 1, 1);
             scale = UpdateAspectScale(scale, width, height, texture);
@@ -72,6 +50,7 @@ namespace MapStudio.UI
 
             var cameraMtx = Matrix4.CreateScale(100) * camera.ProjectionMatrix;
             shader.SetMatrix4x4("mtxCam", ref cameraMtx);
+            shader.SetInt("channelSelector", -1);
 
             GL.Disable(EnableCap.Blend);
 
@@ -80,7 +59,7 @@ namespace MapStudio.UI
             cameraMtx = camera.ViewMatrix * camera.ProjectionMatrix;
             shader.SetMatrix4x4("mtxCam", ref cameraMtx);
 
-            DrawImage(shader, texture, scale.Xy, showAlpha);
+            DrawImage(shader, texture, scale.Xy);
         }
 
         static GLMaterialBlendState ImageBlendState = new GLMaterialBlendState() 
@@ -88,7 +67,7 @@ namespace MapStudio.UI
             BlendColor = true,
         };
 
-        static void DrawImage(ShaderProgram shader, STGenericTexture texture, Vector2 scale, bool showAlpha)
+        private void DrawImage(ShaderProgram shader, STGenericTexture texture, Vector2 scale)
         {
             ImageBlendState.RenderBlendState();
 
@@ -97,24 +76,26 @@ namespace MapStudio.UI
            // shader.SetVector2("scale", new Vector2(1));
             shader.SetVector4("uColor", new Vector4(1));
             shader.SetBoolToInt("isSRGB", texture.IsSRGB);
-            shader.SetBoolToInt("displayAlpha", showAlpha);
+            shader.SetBoolToInt("isBC5S", texture.Platform.OutputFormat == TexFormat.BC5_SNORM);
+            shader.SetBoolToInt("displayAlpha", ImageEditor.DisplayAlpha || ImageEditor.SelectedChannelIndex == 3);
             shader.SetVector2("texCoordScale", new Vector2(1));
             shader.SetFloat("width", texture.Width);
             shader.SetFloat("height", texture.Height);
-            shader.SetInt("currentMipLevel", 0);
+            shader.SetInt("currentMipLevel", ImageEditor.currentMipLevel);
+            if (ImageEditor.SelectedChannelIndex != -1)
+                shader.SetInt("channelSelector", ImageEditor.SelectedChannelIndex);
 
             GL.ActiveTexture(TextureUnit.Texture1);
             BindTexture(texture);
             shader.SetInt("textureInput", 1);
             shader.SetInt("hasTexture", 1);
 
+
             //Draw background
-            vao.Enable(shader);
-            vao.Use();
-            GL.DrawArrays(PrimitiveType.TriangleStrip, 0, Length);
+            QuadDrawer.Draw(shader);
         }
 
-        static void DrawBackground(ShaderProgram shader)
+        private void DrawBackground(ShaderProgram shader)
         {
             var backgroundTexture = IconManager.GetTextureIcon("CHECKERBOARD");
 
@@ -123,19 +104,19 @@ namespace MapStudio.UI
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
             shader.SetInt("backgroundTexture", 1);
-
+            shader.SetInt("backgroundMode", (int)ImageEditor.SelectedBackground);
+            shader.SetVector4("backgroundColor", new Vector4(1));
+            shader.SetInt("hasTexture", 0);
             shader.SetVector2("scale", new Vector2(30));
             shader.SetVector2("texCoordScale", new Vector2(30));
 
             shader.SetVector4("uColor", new Vector4(1));
-            
+
             //Draw background
-            vao.Enable(shader);
-            vao.Use();
-            GL.DrawArrays(PrimitiveType.TriangleStrip, 0, Length);
+            QuadDrawer.Draw(shader);
         }
 
-        static Vector3 UpdateAspectScale(Vector3 scale, int width, int height, STGenericTexture tex)
+        private Vector3 UpdateAspectScale(Vector3 scale, int width, int height, STGenericTexture tex)
         {
             //Adjust scale via aspect ratio
             if (width > height)
@@ -151,7 +132,7 @@ namespace MapStudio.UI
             return scale;
         }
 
-        static void BindTexture(STGenericTexture tex)
+        private void BindTexture(STGenericTexture tex)
         {
             if (tex == null)
                 return;
@@ -175,10 +156,10 @@ namespace MapStudio.UI
 
             //Fixed mip layer with nearest setting
             GL.BindTexture(target, texID);
-            GL.TexParameter(target, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
+            GL.TexParameter(target, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.NearestMipmapNearest);
             GL.TexParameter(target, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
             GL.TexParameter(target, TextureParameterName.TextureMaxLod, (int)15);
-            GL.TexParameter(target, TextureParameterName.TextureMinLod, (int)mipLevel);
+            GL.TexParameter(target, TextureParameterName.TextureMinLod, 0);
 
             int[] mask = new int[4] { (int)All.Red, (int)All.Green, (int)All.Blue, (int)All.Alpha };
             if (ImageEditor.UseChannelComponents)

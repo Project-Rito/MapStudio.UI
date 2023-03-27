@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using OpenTK;
 using Newtonsoft.Json;
 using GLFrameworkEngine;
+using System.Globalization;
 
 namespace MapStudio.UI
 {
@@ -12,13 +13,20 @@ namespace MapStudio.UI
         //Folder of the loaded files
         public string WorkingDirectory { get; set; }
 
+        private string saveData = "";
+
         //Save date of project document
         public string SaveDate
         {
-            get {
-                return DateTime.Now.ToString("dd/MMM/yyyy-(hh:mm:ss)");
+            get { return saveData; }
+            set
+            {
+                saveData = value;
+                DateTime = DateTime.ParseExact(value, "dd/MMM/yyyy-(hh:mm:ss)", CultureInfo.InvariantCulture);
             }
         }
+
+        public DateTime DateTime;
 
         /// <summary>
         /// Gets or sets the original GUI scroll value of the outliner on the Y axis.
@@ -59,18 +67,22 @@ namespace MapStudio.UI
             string json = File.ReadAllText(filePath);
             return JsonConvert.DeserializeObject<ProjectFile>(json);
         }
-
+            
         public void Save(string filePath)
         {
+            saveData = DateTime.Now.ToString("dd/MMM/yyyy-(hh:mm:ss)");
+
             string json = JsonConvert.SerializeObject(this, Formatting.Indented);
             File.WriteAllText(filePath, json);
         }
 
         public void ApplySettings(GLContext context, Workspace workspace)
         {
-            SelectedWorkspace = workspace.ActiveEditor?.SubEditor;
+           // SelectedWorkspace = workspace.ActiveEditor.SubEditor;
+            ShadingMode = DebugShaderRender.DebugRendering.ToString();
 
             var camera = context.Camera;
+            this.UseCollisionDetection = context.EnableDropToCollision;
             this.Camera.RotationX = camera.RotationX;
             this.Camera.RotationY = camera.RotationY;
             this.Camera.Distance = camera.TargetDistance;
@@ -84,10 +96,11 @@ namespace MapStudio.UI
 
         public void LoadSettings(GLContext context, Workspace workspace)
         {
-            if (workspace.ActiveEditor != null)
-                workspace.ActiveEditor.SubEditor = SelectedWorkspace;
+          //  workspace.ActiveEditor.SubEditor = SelectedWorkspace;
+            DebugShaderRender.DebugRendering = Enum.Parse<DebugShaderRender.DebugRender>(ShadingMode);
 
             var camera = context.Camera;
+            context.EnableDropToCollision = UseCollisionDetection;
             camera.RotationX = this.Camera.RotationX;
             camera.RotationY = this.Camera.RotationY;
             camera.TargetDistance = this.Camera.Distance;

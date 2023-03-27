@@ -118,6 +118,9 @@ namespace MapStudio.UI
 
         private void RenderEditor()
         {
+            if (FrameBuffer == null)
+                OnLoad();
+
             FrameBuffer.Bind();
 
             GL.Viewport(0, 0, Width, Height);
@@ -190,7 +193,7 @@ namespace MapStudio.UI
         public void OnMouseWheel()
         {
             float delta = -(MouseEventInfo.WheelPrecise - mouseWheelPrevious);
-            Camera.Zoom = Math.Max(7.0f, Camera.Zoom - delta * 3.5f);
+            Camera.Zoom = Math.Max(2, Camera.Zoom - delta * 3.5f);
             mouseWheelPrevious = MouseEventInfo.WheelPrecise;
         }
     }

@@ -9,6 +9,8 @@ namespace MapStudio.UI
     {
         public static void UpdateMouseState()
         {
+            var mouseInfo = new MouseEventInfo();
+
             //Prepare info
             if (ImGui.IsMouseDown(ImGuiMouseButton.Right))
                 MouseEventInfo.RightButton = ButtonState.Pressed;
@@ -29,6 +31,7 @@ namespace MapStudio.UI
             MouseEventInfo.WheelPrecise = mouseState.WheelPrecise;
 
             //Construct relative position
+            //-22 for titlebar size
             var windowPos = ImGui.GetWindowPos();
 
             var pos = ImGui.GetIO().MousePos;

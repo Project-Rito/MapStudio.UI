@@ -43,12 +43,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="src\NewFolder\**" />
-    <EmbeddedResource Remove="src\NewFolder\**" />
-    <None Remove="src\NewFolder\**" />
-  </ItemGroup>
-
-  <ItemGroup>
+    <PackageReference Include="Discord.Net.Webhook" Version="3.3.2" />
+    <PackageReference Include="Octokit" Version="0.50.0" />
+    <PackageReference Include="SharpEXR" Version="1.0.0.19" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="2.1.3" />
     <PackageReference Include="System.Drawing.Common" Version="5.0.2" />
     <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="6.0.0" />
   </ItemGroup>
@@ -57,25 +55,26 @@
     <ProjectReference Include="..\GLFrameworkEngine\GLFrameworkEngine.csproj" />
     <ProjectReference Include="..\Toolbox.Core\Toolbox.Core.csproj" />
   </ItemGroup>
-  
+
   <ItemGroup>
     <Reference Include="CurveEditorLibrary">
-      <HintPath>..\MapStudio\Lib\CurveEditorLibrary.dll</HintPath>
+      <HintPath>Externals\CurveEditorLibrary.dll</HintPath>
     </Reference>
     <Reference Include="ImGui.NET">
-      <HintPath>..\MapStudio\Lib\ImGui.NET.dll</HintPath>
+      <HintPath>Externals\ImGui.NET.dll</HintPath>
+    </Reference>
+    <Reference Include="IONET">
+      <HintPath>Externals\IONET.dll</HintPath>
+      <Private>False</Private>
     </Reference>
     <Reference Include="OpenTK">
-      <HintPath>..\MapStudio\Lib\OpenTK.dll</HintPath>
+      <HintPath>Externals\OpenTK.dll</HintPath>
     </Reference>
     <Reference Include="Syroot.BinaryData">
-      <HintPath>..\MapStudio\Lib\Syroot.BinaryData.dll</HintPath>
+      <HintPath>Externals\Syroot.BinaryData.dll</HintPath>
     </Reference>
     <Reference Include="Syroot.Maths">
-      <HintPath>..\MapStudio\Lib\Syroot.Maths.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Runtime.CompilerServices.Unsafe, Version=4.0.3.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
-      <HintPath>..\packages\System.Runtime.CompilerServices.Unsafe.4.4.0\lib\netstandard2.0\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+      <HintPath>Externals\Syroot.Maths.dll</HintPath>
     </Reference>
   </ItemGroup>
   

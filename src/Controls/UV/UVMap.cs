@@ -15,23 +15,17 @@ namespace MapStudio.UI
     {
         #region Draw UVs
 
-        static VertexBufferObject vao;
+        static RenderMesh<Vector2> MeshDrawer;
 
-        public List<Vector2> Points = new List<Vector2>();
+        private List<Vector2> Points = new List<Vector2>();
 
         static int Length;
 
         public static void Init()
         {
-            if (Length == 0)
-            {
-                int buffer = GL.GenBuffer();
-                vao = new VertexBufferObject(buffer);
-                vao.AddAttribute(0, 2, VertexAttribPointerType.Float, false, 8, 0);
-                vao.Initialize();
-
-                Length = 1;
-            }
+            if (MeshDrawer == null)
+                MeshDrawer = new RenderMesh<Vector2>(new Vector2[0], PrimitiveType.Lines);
+        }
         }
 
         public void Reset() {
@@ -50,13 +44,12 @@ namespace MapStudio.UI
             //shader.SetMatrix4x4(GLConstants.ModelMatrixInstanced, ref scaleMtx);
             shader.SetMatrix4x4("mtxCam", ref cameraMtx);
 
+            shader.SetFloat("brightness", 1.0f);
             shader.SetInt("hasTexture", 0);
             shader.SetVector2("scale", scale);
             shader.SetVector4("uColor", ColorUtility.ToVector4(Runtime.UVEditor.UVColor));
 
-            vao.Enable(shader);
-            vao.Use();
-            GL.DrawArrays(PrimitiveType.LineLoop, 0, Points.Count);
+            MeshDrawer.Draw(shader);
 
             GL.Enable(EnableCap.CullFace);
         }
@@ -65,7 +58,7 @@ namespace MapStudio.UI
         {
             Init();
 
-            if (Points.Count > 0) return;
+            Points.Clear();
 
             if (genericObjects.Count == 0) return;
 
@@ -117,18 +110,20 @@ namespace MapStudio.UI
 
                     if (genericObject.Vertices.Count > f[v + 2])
                     {
-                        v1 = genericObject.Vertices[(int)f[v]].TexCoords[UvChannelIndex];
-                        v2 = genericObject.Vertices[(int)f[v + 1]].TexCoords[UvChannelIndex];
-                        v3 = genericObject.Vertices[(int)f[v + 2]].TexCoords[UvChannelIndex];
+                        if (genericObject.Vertices[(int)f[v]].TexCoords.Length <= UvChannelIndex)
+                            continue;
 
-                        v1 = new Vector2(v1.X, 1 - v1.Y);
-                        v2 = new Vector2(v2.X, 1 - v2.Y);
-                        v3 = new Vector2(v3.X, 1 - v3.Y);
+                        Vector2 v1 = genericObject.Vertices[(int)f[v]].TexCoords[UvChannelIndex];
+                        Vector2 v2 = genericObject.Vertices[(int)f[v + 1]].TexCoords[UvChannelIndex];
+                        Vector2 v3 = genericObject.Vertices[(int)f[v + 2]].TexCoords[UvChannelIndex];
 
-                        DrawUVTriangleAndGrid(v1, v2, v3, divisions, uvColor, lineWidth, gridColor, textureMap);
+                        v1 = new Vector2(v1.X, v1.Y);
+                        v2 = new Vector2(v2.X, v2.Y);
+                        v3 = new Vector2(v3.X, v3.Y);
+
+                        AddUVTriangle(v1, v2, v3, textureMap);
                     }
                 }
-            }
 
             List<float> list = new List<float>();
             for (int i = 0; i < Points.Count; i++)
@@ -136,15 +131,10 @@ namespace MapStudio.UI
                 list.Add(Points[i].X);
                 list.Add(Points[i].Y);
             }
-
-            vao.Bind();
-
-            float[] data = list.ToArray();
-            GL.BufferData(BufferTarget.ArrayBuffer, sizeof(float) * data.Length, data, BufferUsageHint.StaticDraw);
+            MeshDrawer.UpdateVertexData(Points.ToArray());
         }
 
-        private void DrawUVTriangleAndGrid(Vector2 v1, Vector2 v2, Vector2 v3, int divisions,
-            System.Drawing.Color uvColor, int lineWidth, System.Drawing.Color gridColor, STGenericTextureMap textureMap)
+        private void AddUVTriangle(Vector2 v1, Vector2 v2, Vector2 v3, STGenericTextureMap textureMap)
         {
             GL.UseProgram(0);
 
@@ -156,11 +146,10 @@ namespace MapStudio.UI
                 scaleUv *= textureMap.Transform.Scale;
                 transUv += textureMap.Transform.Translate;
             }
-
-            Points.AddRange(DrawUvTriangle(v1, v2, v3, uvColor, scaleUv, transUv));
+            Points.AddRange(TransformUVTriangle(v1, v2, v3, scaleUv, transUv));
         }
 
-        private static List<Vector2> DrawUvTriangle(Vector2 v1, Vector2 v2, Vector2 v3, System.Drawing.Color uvColor, Vector2 scaleUv, Vector2 transUv)
+        private static List<Vector2> TransformUVTriangle(Vector2 v1, Vector2 v2, Vector2 v3, Vector2 scaleUv, Vector2 transUv)
         {
             List<Vector2> points = new List<Vector2>();
             points.Add(v1 * scaleUv + transUv);

@@ -14,7 +14,8 @@ namespace MapStudio.UI
 {
     public class UVViewport : Viewport2D
     {
-        public STGenericTextureMap ActiveTextureMap { get; set; }
+        public STGenericTextureMap ActiveTextureMap;
+
         public List<STGenericMesh> ActiveObjects = new List<STGenericMesh>();
 
         public UVMap DrawableUVMap = new UVMap();
@@ -35,7 +36,7 @@ namespace MapStudio.UI
 
             GenericRenderer.TextureView tex = null;
 
-            foreach (var render in GLFrameworkEngine.DataCache.ModelCache.Values) {
+            foreach (var render in DataCache.ModelCache.Values) {
                 if (ActiveTextureMap != null) {
                     var brender = render;
 
@@ -44,11 +45,19 @@ namespace MapStudio.UI
                 }
             }
 
+            if (tex == null)
+                return;
             Vector2 aspectScale = UpdateAspectScale(Width, Height, tex);
 
-            UVBackground.Draw(tex, ActiveTextureMap, Width, Height, aspectScale, Camera);
-            DrawableUVMap.UpdateVertexBuffer(PolygonGroupIndex, UvChannelIndex, ActiveObjects, ActiveTextureMap);
-            DrawableUVMap.Draw(Camera, aspectScale);
+            UVBackground.Draw(tex, Brightness, ActiveTextureMap, aspectScale, Camera);
+            if (UpdateVertexBuffer)
+            {
+                DrawableUVMap.UpdateVertexBuffer(PolygonGroupIndex, UvChannelIndex, ActiveObjects, ActiveTextureMap);
+                UpdateVertexBuffer = false;
+            }
+
+            if (DisplayUVs)
+                DrawableUVMap.Draw(Camera, aspectScale);
         }
 
         public void Reset() {

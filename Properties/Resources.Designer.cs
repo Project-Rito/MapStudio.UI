@@ -269,5 +269,45 @@ namespace MapStudio.UI.Properties {
                 return ((byte[])(obj));
             }
         }
-    }
+		
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static byte[] AnimationTrackX {
+            get {
+                object obj = ResourceManager.GetObject("AnimationTrackX", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+		
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static byte[] AnimationTrackY {
+            get {
+                object obj = ResourceManager.GetObject("AnimationTrackY", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+		
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static byte[] AnimationTrackZ {
+            get {
+                object obj = ResourceManager.GetObject("AnimationTrackZ", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+		
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static byte[] AnimationTrackW {
+            get {
+                object obj = ResourceManager.GetObject("AnimationTrackW", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+   }
 }

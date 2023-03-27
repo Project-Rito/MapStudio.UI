@@ -11,6 +11,8 @@ using GLFrameworkEngine;
 using System.Reflection;
 using OpenTK;
 using Toolbox.Core;
+using Toolbox.Core.Animations;
+using UIFramework;
 
 namespace MapStudio.UI
 {
@@ -19,6 +21,9 @@ namespace MapStudio.UI
     /// </summary>
     public class Workspace : DockWindow, IDisposable
     {
+        public EventHandler OnProjectLoad;
+        public EventHandler OnProjectSave;
+
         public static Workspace ActiveWorkspace { get; set; }
 
         public bool UpdateDockLayout = true;
@@ -39,9 +44,9 @@ namespace MapStudio.UI
         public ProjectResources Resources = new ProjectResources();
 
         /// <summary>
-        /// Determines if the window is opened or not. If set to false, the window will close.
+        /// Determines if the window can close or not during the dialog confirmation.
         /// </summary>
-        public bool Opened = true;
+        public bool CanClose = false;
 
         /// <summary>
         /// The dock ID used on the workspace window. Child docks link to this.
@@ -84,51 +89,180 @@ namespace MapStudio.UI
             }
         }
 
+        /// <summary>
+        /// The outliner tree for storing node data in a hiearchy.
+        /// </summary>
         public Outliner Outliner { get; set; }
-        public Viewport ViewportWindow { get; set; }
-        public PropertyWindow PropertyWindow { get; set; }
-        public ConsoleWindow ConsoleWindow { get; set; }
-        public AssetViewWindow AssetViewWindow { get; set; }
-        public ToolWindow ToolWindow { get; set; }
-        public DockWindow HelpWindow { get; set; }
 
+        /// <summary>
+        /// The viewport for displaying 3D rendering.
+        /// </summary>
+        public Viewport ViewportWindow { get; set; }
+
+        /// <summary>
+        /// Property window for displaying current properties from a selected outliner node.
+        /// </summary>
+        public PropertyWindow PropertyWindow { get; set; }
+
+        /// <summary>
+        /// The console for printing out information, warnings and errors.
+        /// </summary>
+        public ConsoleWindow ConsoleWindow { get; set; }
+
+        /// <summary>
+        /// A window for storing assets such as models, textures, map objects, and materials.
+        /// </summary>
+        public AssetViewWindow AssetViewWindow { get; set; }
+
+        /// <summary>
+        /// A window for tool utilities.
+        /// </summary>
+        public ToolWindow ToolWindow { get; set; }
+
+        /// <summary>
+        /// A help window for explaining how to use the current editor.
+        /// </summary>
+        public HelpWindow HelpWindow { get; set; }
+
+        public AnimationGraphWindow GraphWindow { get; set; }
+
+        public TimelineWindow TimelineWindow { get; set; }
+
+        public UVWindow UVWindow { get; set; }
+
+        /// <summary>
+        /// Tool menus for selecting different editor tools to use in the workspace.
+        /// </summary>
+        public List<MenuItemModel> WorkspaceTools = new List<MenuItemModel>();
+
+        private MenuItemModel _activeWorkspaceTool;
+        public MenuItemModel ActiveWorkspaceTool
+        {
+            get
+            {
+                if (_activeWorkspaceTool == null)
+                    _activeWorkspaceTool = WorkspaceTools.FirstOrDefault();
+                return _activeWorkspaceTool;
+            }
+            set {
+                _activeWorkspaceTool = value;
+            }
+        }
+
+        /// <summary>
+        /// A window list of popup windows in the workspace.
+        /// </summary>
         public List<Window> Windows = new List<Window>();
         public List<DockWindow> DockWindows = new List<DockWindow>();
 
         private static ColorCycle WorkspaceColorCycle = new ColorCycle();
+        public STAnimation GetActiveAnimation() => GraphWindow.ActiveAnimation;
 
-        public EventHandler ApplicationUserEntered;
+        public string ID = "Space";
 
-        public Workspace(GlobalSettings settings, int id, GameWindow parentWindow)
+        public override string GetWindowID() => ID;
+
+        public Workspace(GlobalSettings settings, string name) : base(name)
         {
-            ID = id;
-            OwnershipColor = WorkspaceColorCycle.NextColor();
 
             //Window docks
-            PropertyWindow = new PropertyWindow() { Owner = this };
-            Outliner = new Outliner() { Owner = this };
-            ToolWindow = new ToolWindow() { Owner = this };
-            ConsoleWindow = new ConsoleWindow() { Owner = this };
-            AssetViewWindow = new AssetViewWindow() { Owner = this };
-            ViewportWindow = new Viewport(this, settings) { Owner = this };
-            HelpWindow = new DockWindow() { Owner = this };
 
             ParentWindow = parentWindow;
             ViewportWindow.Pipeline._context.Scene.SelectionUIChanged += (o, e) =>
             {
-                if (ViewportWindow.IsFocused) {
-                    Outliner.SelectedNodes.Clear();
-                    ScrollToSelectedNode((NodeBase)o);
+                //Assign the active file format if outliner has it selected
+                if (Outliner.SelectedNode != null)
+                {
+                    //Select the active file to edit if one is selected
+                    if (Outliner.SelectedNode.Tag is FileEditor && Outliner.SelectedNode.Tag != ActiveEditor)
+                        ActiveEditor = (FileEditor)Outliner.SelectedNode.Tag;
+
+                    //Select an animation for playback in the timeline window
+                    if (Outliner.SelectedNode.Tag is STAnimation) {
+                        TimelineWindow.AddAnimation((STAnimation)Outliner.SelectedNode.Tag);
+                        GraphWindow.AddAnimation((STAnimation)Outliner.SelectedNode.Tag);
+
+                    }
+                    //Load a material to the UV window if one is selected
+                    if (Outliner.SelectedNode.Tag is STGenericMaterial) {
+                        UVWindow.Load((STGenericMaterial)Outliner.SelectedNode.Tag);
+                    }
+                    //Load a mesh to the UV window if one is selected
+                    if (Outliner.SelectedNode.Tag is STGenericMesh) {
+                        UVWindow.Load((STGenericMesh)Outliner.SelectedNode.Tag);
+                    }
                 }
+                PropertyWindow.SelectedObject = Outliner.SelectedNode;
             };
 
+            ToolWindow.UIDrawer += delegate {
+                this.ActiveEditor?.DrawToolWindow();
+            };
+
+            ViewportWindow.DrawViewportMenuBar += delegate {
+                this.ActiveEditor?.DrawViewportMenuBar();
+            };
+
+            HelpWindow.UIDrawer += delegate
+            {
+                this.ActiveEditor?.DrawHelpWindow();
+            };
+
+            this.DockedWindows.Add(Outliner);
+            this.DockedWindows.Add(PropertyWindow);
+            this.DockedWindows.Add(ConsoleWindow);
+            this.DockedWindows.Add(AssetViewWindow);
+            this.DockedWindows.Add(ToolWindow);
+            this.DockedWindows.Add(ViewportWindow);
+            this.DockedWindows.Add(HelpWindow);
+
+            ReloadDefaultDockSettings();
+
+            this.Windows.Add(new StatisticsWindow());
+
+            //Ignore the workspace setting as the editor handles files differently
+            Outliner.ShowWorkspaceFileSetting = false;
+            Workspace.ActiveWorkspace = this;
+            StudioSystem.Instance = this.StudioSystem;
+        }
+
+        public override void Render()
+        {
+            //Draw opened windows (non dockable)
+            foreach (var window in Windows)
+            {
+                if (!window.Opened)
+                    continue;
+
+                if (ImGui.Begin(window.Name, ref window.Opened, window.Flags))
+                {
+                    window.Render();
+                }
+                ImGui.End();
+            }
+
+            if (ImGui.IsWindowFocused())
+                Workspace.UpdateActive(this);
+
+            if (ViewportWindow.IsFocused)
+                PropertyWindow.SelectedObject = GetSelectedNode();
+
+            base.Render();
+        }
+
+        public void ReloadDefaultDockSettings()
+        {
             //Confiure the layout placements
+            UVWindow.DockDirection = ImGuiDir.Down;
+            UVWindow.ParentDock = Outliner;
+            UVWindow.SplitRatio = 0.3f;
+
             Outliner.DockDirection = ImGuiDir.Left;
             Outliner.SplitRatio = 0.2f;
 
-            ToolWindow.DockDirection = ImGuiDir.Down;
+            ToolWindow.DockDirection = ImGuiDir.Up;
             ToolWindow.SplitRatio = 0.3f;
-            ToolWindow.ParentDock = Outliner;
+            ToolWindow.ParentDock = PropertyWindow;
 
             PropertyWindow.DockDirection = ImGuiDir.Right;
             PropertyWindow.SplitRatio = 0.3f;
@@ -145,6 +279,9 @@ namespace MapStudio.UI
             this.DockWindows.Add(AssetViewWindow);
             this.DockWindows.Add(ToolWindow);
             this.DockWindows.Add(ViewportWindow);
+            HelpWindow.DockDirection = ImGuiDir.Down;
+            HelpWindow.ParentDock = Outliner;
+            HelpWindow.SplitRatio = 0.3f;
 
             foreach (var window in DockWindows)
                 window.Opened = true;
@@ -155,10 +292,14 @@ namespace MapStudio.UI
             Outliner.ShowWorkspaceFileSetting = false;
             Workspace.ActiveWorkspace = this;
             StudioSystem.Instance = this.StudioSystem;
+            this.UpdateDockLayout = true;
         }
 
         public void ReloadViewportMenu() { ViewportWindow.ReloadMenus(); }
 
+        /// <summary>
+        /// Gets a list of menu items for toggling dock windows.
+        /// </summary>
         public List<MenuItemModel> GetDockToggles()
         {
             List<MenuItemModel> menus = new List<MenuItemModel>();
@@ -172,11 +313,14 @@ namespace MapStudio.UI
             return menus;
         }
 
+        /// <summary>
+        /// Gets a list of menu items for viewport icons.
+        /// </summary>
         public List<MenuItemModel> GetViewportMenuIcons()
         {
             List<MenuItemModel> menus = new List<MenuItemModel>();
             if (ActiveEditor != null)
-                menus.AddRange(ActiveEditor.GetViewportMenuIcons());
+            menus.AddRange(ActiveEditor.GetViewportMenuIcons());
             return menus;
         }
 
@@ -184,22 +328,32 @@ namespace MapStudio.UI
         {
             List<MenuItemModel> menus = new List<MenuItemModel>();
             if (ViewportWindow != null)
-                menus.AddRange(ViewportWindow.GetEditMenuItems());
+            menus.AddRange(ViewportWindow.GetEditMenuItems());
             if (ActiveEditor != null)
-                menus.AddRange(ActiveEditor.GetEditMenuItems());
+            menus.AddRange(ActiveEditor.GetEditMenuItems());
             return menus;
         }
 
-        public void AddAssetCategory(IAssetCategory category)
+        /// <summary>
+        /// Gets a list of menu items for general view adjusting.
+        /// </summary>
+        public List<MenuItemModel> GetViewMenuItems()
         {
+            List<MenuItemModel> menus = new List<MenuItemModel>();
+            menus.AddRange(ActiveEditor.GetViewMenuItems());
+            return menus;
+        }
+        
+        /// <summary>
+        /// Adds an asset category to the asset window.
+        /// </summary>
+        public void AddAssetCategory(IAssetLoader category) {
             this.AssetViewWindow.AddCategory(category);
         }
 
-        public void ReloadOutliner()
-        {
-
-        }
-
+        /// <summary>
+        /// Loads a file format into the current workspace.
+        /// </summary>
         public FileEditor LoadFileFormat(string filePath, bool isProject = false)
         {
             if (!File.Exists(filePath))
@@ -221,6 +375,13 @@ namespace MapStudio.UI
 
             ActiveEditor = editor;
 
+            //Node per file editor
+            editor.Root.Header = fileFormat.FileInfo.FileName;
+            editor.Root.Tag = fileFormat;
+
+            if (fileFormat is IArchiveFile)
+                ArchiveEditor.Load((IArchiveFile)fileFormat, editor.Root);
+
             //Add the file to the project resources
             Resources.AddFile(fileFormat);
 
@@ -232,6 +393,12 @@ namespace MapStudio.UI
             StudioLogger.WriteLine(string.Format(TranslationSource.GetText("LOADING_FILE"), filePath));
 
             SetupActiveEditor(editor);
+
+            //Add to viewport filter list
+            if (!(fileFormat is IArchiveFile))
+                ViewportWindow.Pipeline.AddFile(editor, Path.GetFileNameWithoutExtension(filePath));
+
+            StudioLogger.WriteLine(string.Format(TranslationSource.GetText("LOADING_FILE"), filePath));
 
             InitEditors(filePath);
             LoadProjectResources();
@@ -281,16 +448,58 @@ namespace MapStudio.UI
             ReloadViewportMenu();
         }
 
-        public void DrawMenu()
+        public void CreateNewProject(Type editor, Action<bool> onProjectCreated)
         {
-          
-        }
-
-        public void CreateNewProject()
-        {
-            Name = TranslationSource.GetText("NEW_PROJECT");
+            Name = "New Project";
             Resources = new ProjectResources();
+            Resources.ProjectFile.WorkingDirectory = Runtime.ExecutableDir;
             LoadProjectResources();
+
+            ActiveEditor = (FileEditor)Activator.CreateInstance(editor);
+
+            //Editors must be IFileFormat types for loading/saving
+            if (ActiveEditor is IFileFormat)
+            {
+                ((IFileFormat)ActiveEditor).FileInfo = new File_Info();
+                //Add to project files for saving project data.
+                Resources.AddFile((IFileFormat)ActiveEditor);
+            }
+            ViewportWindow.Pipeline.AddFile(ActiveEditor, "NewProject");
+
+            //Editors can have an optional dialog before creating new files.
+            if (ActiveEditor.RenderNewFileDialog != null)
+            {
+                DialogHandler.Show(Name, 500, 105, () =>
+                {
+                    ActiveEditor.RenderNewFileDialog.Invoke();
+                }, (ok) =>
+                {
+                    if (!ok)
+                    {
+                        onProjectCreated?.Invoke(false);
+                        return;
+                    }
+
+                    ProcessLoading.Instance.IsLoading = true;
+
+                    UIManager.ActionExecBeforeUIDraw += delegate
+                    {
+                        ActiveEditor.CreateNew();
+                        SetupActiveEditor(ActiveEditor);
+                        ActiveEditor.AfterLoaded();
+
+                        onProjectCreated?.Invoke(true);
+                    };
+                });
+            }
+            else
+            {
+                ProcessLoading.Instance.IsLoading = true;
+
+                ActiveEditor.CreateNew();
+                SetupActiveEditor(ActiveEditor);
+                onProjectCreated?.Invoke(true);
+            }
         }
 
         /// <summary>
@@ -298,6 +507,9 @@ namespace MapStudio.UI
         /// </summary>
         public void ScrollToSelectedNode(NodeBase node)
         {
+            if (node.Parent == null)
+                return;
+
             Outliner.ScrollToSelected(node);
         }
 
@@ -307,11 +519,15 @@ namespace MapStudio.UI
         /// </summary>
         public static void UpdateActive(Workspace workspace)
         {
+            if (ActiveWorkspace == workspace)
+                return;
+
             ActiveWorkspace = workspace;
             //Update error logger on switch
             workspace.PrintErrors();
             //Update the system instance.
             StudioSystem.Instance = workspace.StudioSystem;
+            workspace.OnWindowLoaded();
         }
 
         public void OnWindowLoaded()
@@ -326,6 +542,7 @@ namespace MapStudio.UI
         {
             InitEditors(filePath);
             LoadProjectResources();
+
             return true;
         }
 
@@ -333,6 +550,7 @@ namespace MapStudio.UI
         {
             ReloadEditors();
             LoadEditorNodes();
+            OnProjectLoad?.Invoke(this, EventArgs.Empty);
 
             Outliner.UpdateScroll(0.0f, Resources.ProjectFile.OutlierScroll);
             OnWindowLoaded();
@@ -352,6 +570,8 @@ namespace MapStudio.UI
             //Set current folder as project name
             if (isProject)
                 Name = new DirectoryInfo(folder).Name;
+            else
+                Name = Path.GetFileName(filePath);
 
             //Load file resources
             if (isProject)
@@ -378,6 +598,7 @@ namespace MapStudio.UI
         public void PrintErrors()
         {
             StudioLogger.ResetErrors();
+            ActiveEditor.PrintErrors();
         }
 
         /// <summary>
@@ -404,6 +625,7 @@ namespace MapStudio.UI
             }
         }
 
+
         /// <summary>
         /// Saves the file data of the active editor.
         /// </summary>
@@ -417,12 +639,12 @@ namespace MapStudio.UI
                 if (!file.CanSave)
                     continue;
 
-                //Path doesn't exist so use a file dialog
+            //Path doesn't exist so use a file dialog
                 if (Resources.ProjectFolder == null && !File.Exists(file.FileInfo.FilePath))
-                    SaveFileWithDialog(file);
-                else
+                SaveFileWithDialog(file);
+            else
                     SaveFileData(file, file.FileInfo.FilePath);
-            }
+        }
         }
 
         public void SaveFileWithDialog()
@@ -436,11 +658,14 @@ namespace MapStudio.UI
                     continue;
 
                 SaveFileWithDialog(file);
-            }
+        }
         }
 
         private void SaveFileWithDialog(IFileFormat fileFormat)
         {
+            if (fileFormat.FileInfo.ParentArchive != null)
+                fileFormat = fileFormat.FileInfo.ParentArchive as IFileFormat;
+
             ImguiFileDialog sfd = new ImguiFileDialog() { SaveDialog = true };
             sfd.FileName = fileFormat.FileInfo.FileName;
 
@@ -452,14 +677,28 @@ namespace MapStudio.UI
 
         private void SaveFileData(IFileFormat fileFormat, string filePath)
         {
+            fileFormat.FileInfo.FilePath = filePath;
+
+            //Apply editor data
+            SaveEditorData(false);
+
+            PrintErrors();
+
+            string errorLog = StudioLogger.GetErrorLog();
+
             string name = Path.GetFileName(filePath);
 
             ProcessLoading.Instance.IsLoading = true;
             ProcessLoading.Instance.Update(0, 100, $"Saving {name}", "Saving");
 
-            //Save current file
+            try
+            {
+                //Save current file
             Toolbox.Core.IO.STFileSaver.SaveFileFormat(fileFormat, filePath);
             StudioLogger.WriteLine(string.Format(TranslationSource.GetText("SAVED_FILE"), filePath));
+
+            if (!string.IsNullOrEmpty(errorLog))
+                TinyFileDialog.MessageBoxErrorOk($"{errorLog}");
 
             ProcessLoading.Instance.Update(100, 100, $"Saving {name}", "Saving");
             ProcessLoading.Instance.IsLoading = false;
@@ -471,11 +710,13 @@ namespace MapStudio.UI
 
         public void SaveProject(string folderPath)
         {
+            Resources.ProjectFolder = folderPath;
+
             if (!Directory.Exists(folderPath))
             {
                 try
                 {
-                    Directory.CreateDirectory(folderPath);
+                Directory.CreateDirectory(folderPath);
                 }
                 catch
                 {
@@ -489,13 +730,14 @@ namespace MapStudio.UI
             //Apply editor data
             SaveEditorData(true);
             //Save as project
-            Resources.SaveProject($"{folderPath}/Project.json", ViewportWindow.Pipeline._context, this);
+            OnProjectSave?.Invoke(this, EventArgs.Empty);
+            Resources.SaveProject(Path.Combine(folderPath,"Project.json"), ViewportWindow.Pipeline._context, this);
             //Save the thumbnail in the current view
-            var thumb = ViewportWindow.Pipeline.SaveAsScreenshot(720, 512);
-            thumb.Save($"{folderPath}/Thumbnail.png");
-            //Update icon cache for thumbnails used
-            IconManager.LoadTextureFile($"{folderPath}/Thumbnail.png", 64, 64, true);
+            var thumb = ViewportWindow.SaveAsScreenshot(720, 512);
+            thumb.Save(Path.Combine(folderPath,"Thumbnail.png"));
 
+            //Update icon cache for thumbnails used
+            IconManager.LoadTextureFile(Path.Combine(folderPath,"Thumbnail.png"), 64, 64, true);
             SaveFileData();
 
             PrintErrors();
@@ -571,37 +813,8 @@ namespace MapStudio.UI
                 SaveEditorNode(n, ref nIndex);
         }
 
-        /// <summary>
-        /// Displays the workspace and all the docked windows given the current dock ID.
-        /// </summary>
-        public void RenderWindows()
         {
-            //Draw opened windows (non dockable)
-            foreach (var window in Windows)
-            {
-                if (!window.Opened)
-                    continue;
-
-                if (ImGui.Begin(window.Name, ref window.Opened, window.Flags))
-                {
-                    window.RenderWithStyling();
-                    ImGui.End();
-                }
-            }
-
-            if (AssetViewWindow.IsFocused && AssetViewWindow.SelectedAsset != null)
-                PropertyWindow.SelectedObject = AssetViewWindow.SelectedAsset;
-            else
-                PropertyWindow.SelectedObject = GetSelectedNode();
-
-            //Draw dockable windows
-            foreach (var dock in DockWindows)
-                if (dock.Opened)
-                {
-                    dock.PushStyling();
-                    LoadWindow(GetWindowName(dock.Name), ref dock.Opened, dock.Flags, () => dock.Render());
-                    dock.PopStyling();
-                }
+        }
         }
 
         public NodeBase GetSelectedNode()
@@ -635,7 +848,12 @@ namespace MapStudio.UI
             InputState.UpdateMouseState();
             Vector2 screenPosition = new Vector2(MouseEventInfo.Position.X, MouseEventInfo.Position.Y);
             var asset = AssetViewWindow.DraggedAsset;
-            ActiveEditor.AssetViewportDrop(asset, screenPosition);
+
+            //Handle the action before UI draw incase we want to update the UI (ie progress bar)
+            UIManager.ActionExecBeforeUIDraw = () =>
+            {
+                ActiveEditor.AssetViewportDrop(asset, screenPosition);
+            };
         }
 
         public void OnLanguageChanged()
@@ -661,9 +879,7 @@ namespace MapStudio.UI
             }
         }
 
-        public void OnKeyUp(KeyEventInfo e)
         {
-            ActiveEditor?.OnKeyUp(e);
         }
 
         /// <summary>
@@ -749,7 +965,7 @@ namespace MapStudio.UI
                 if (dock.DockDirection == ImGuiDir.None)
                     dock.DockID = dock_main_id;
                 else
-                {
+        {
                     //Search for the same dock ID to reuse if possible
                     var dockedWindow = DockWindows.FirstOrDefault(x => x != dock && x.DockDirection == dock.DockDirection && x.SplitRatio == dock.SplitRatio && x.ParentDock == dock.ParentDock);
                     if (dockedWindow != null && dockedWindow.DockID != 0)
@@ -771,7 +987,7 @@ namespace MapStudio.UI
             ApplicationUserEntered?.Invoke(this, EventArgs.Empty);
         }
 
-        public void Dispose()
+        public new void Dispose()
         {
             //Dispose files
             foreach (var file in Resources.Files)
@@ -787,14 +1003,18 @@ namespace MapStudio.UI
 
             StudioSystem.Dispose();
 
+            TimelineWindow.Dispose();
+            GraphWindow.Dispose();
             ViewportWindow.Dispose();
             Outliner.ActiveFileFormat = null;
             Outliner.Nodes.Clear();
             Outliner.SelectedNodes.Clear();
             DataCache.ModelCache.Clear();
             DataCache.TextureCache.Clear();
-        }
 
+            base.Dispose();
+        }
+            
         private string GetWindowName(string name)
         {
             string text = TranslationSource.GetText(name);

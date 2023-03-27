@@ -65,14 +65,14 @@ namespace MapStudio.UI
         }
 
 
-        public static bool InputFromFloat(string label, object obj, string properyName, bool drag = false, float step = 1, float min = float.MinValue, float max = float.MaxValue)
+        public static bool InputFromFloat(string label, object obj, string properyName, bool drag = false, float step = 0.1f, float v_min = float.MinValue, float v_max = float.MaxValue)
         {
             var input = obj.GetType().GetProperty(properyName);
             var inputValue = (float)input.GetValue(obj);
 
             bool edited = false;
             if (drag)
-                edited = ImGui.DragFloat(label, ref inputValue, 0.1f, min, max);
+                edited = ImGui.DragFloat(label, ref inputValue, step, v_min, v_max);
             else
                 edited = ImGui.InputFloat(label, ref inputValue, step);
 
@@ -173,7 +173,7 @@ namespace MapStudio.UI
             return edited;
         }
 
-        public static void InputFloatsFromVector2(string label, object obj, string properyName, bool drag = false)
+        public static bool InputFloatsFromVector2(string label, object obj, string properyName, bool drag = false)
         {
             var input = obj.GetType().GetProperty(properyName);
             var inputValue = (float[])input.GetValue(obj);
@@ -188,10 +188,12 @@ namespace MapStudio.UI
             if (edited)
             {
                 input.SetValue(obj, new float[2] { vec.X, vec.Y });
+                return true;
             }
+            return false;
         }
 
-        public static void InputFloatsFromVector3(string label, object obj, string properyName, bool drag = false)
+        public static bool InputFloatsFromVector3(string label, object obj, string properyName, bool drag = false)
         {
             var input = obj.GetType().GetProperty(properyName);
             var inputValue = (float[])input.GetValue(obj);
@@ -206,17 +208,19 @@ namespace MapStudio.UI
             if (edited)
             {
                 input.SetValue(obj, new float[3] { vec.X, vec.Y, vec.Z });
+                return true;
             }
+            return false;
         }
 
-        public static bool InputTKVector3(string label, object obj, string properyName)
+        public static bool InputTKVector3(string label, object obj, string properyName, float speed = 1)
         {
             var input = obj.GetType().GetProperty(properyName);
             var inputValue = (OpenTK.Vector3)input.GetValue(obj);
             var vec = new Vector3(inputValue[0], inputValue[1], inputValue[2]);
 
             float size = ImGui.GetFontSize();
-            if (ImGui.DragFloat3(label, ref vec))
+            if (ImGui.DragFloat3(label, ref vec, speed))
             {
                 input.SetValue(obj, new OpenTK.Vector3(vec.X, vec.Y, vec.Z));
                 return true;
@@ -282,7 +286,7 @@ namespace MapStudio.UI
             return false;
         }
 
-        public static void InputFloatsFromColor3Button(string label, object obj, string properyName, ImGuiColorEditFlags flags = ImGuiColorEditFlags.None)
+        public static bool InputFloatsFromColor3Button(string label, object obj, string properyName, ImGuiColorEditFlags flags = ImGuiColorEditFlags.None)
         {
             var input = obj.GetType().GetProperty(properyName);
             var inputValue = (float[])input.GetValue(obj);
@@ -292,10 +296,12 @@ namespace MapStudio.UI
             if (ImGui.ColorButton(label, vec, flags, new Vector2(size, size)))
             {
                 input.SetValue(obj, new float[3] { vec.X, vec.Y, vec.Z });
+                return true;
             }
+            return false;
         }
 
-        public static void InputFloatsFromColor4Button(string label, object obj, string properyName, ImGuiColorEditFlags flags = ImGuiColorEditFlags.None)
+        public static bool InputFloatsFromColor4Button(string label, object obj, string properyName, ImGuiColorEditFlags flags = ImGuiColorEditFlags.None)
         {
             var input = obj.GetType().GetProperty(properyName);
             var inputValue = (float[])input.GetValue(obj);
@@ -305,10 +311,12 @@ namespace MapStudio.UI
             if (ImGui.ColorButton(label, vec, flags, new Vector2(size, size)))
             {
                 input.SetValue(obj, new float[4] { vec.X, vec.Y, vec.Z, vec.W });
+                return true;
             }
+            return false;
         }
 
-        public static void InputFloatsFromVector4(string label, object obj, string properyName, bool drag = false)
+        public static bool InputFloatsFromVector4(string label, object obj, string properyName, bool drag = false)
         {
             var input = obj.GetType().GetProperty(properyName);
 
@@ -324,11 +332,13 @@ namespace MapStudio.UI
             if (edited)
             {
                 input.SetValue(obj, new float[4] { vec.X, vec.Y, vec.Z, vec.W });
+                return true;
             }
+            return false;
         }
 
 
-        public static void InputFloatsFromColor3(string label, object obj, string properyName)
+        public static bool InputFloatsFromColor3(string label, object obj, string properyName)
         {
             var input = obj.GetType().GetProperty(properyName);
             var inputValue = (float[])input.GetValue(obj);
@@ -336,10 +346,12 @@ namespace MapStudio.UI
             if (ImGui.ColorEdit3(label, ref vec, ImGuiColorEditFlags.HDR | ImGuiColorEditFlags.Float))
             {
                 input.SetValue(obj, new float[3] { vec.X, vec.Y, vec.Z });
+                return true;
             }
+            return false;
         }
 
-        public static void InputFloatsFromColor4(string label, object obj, string properyName, ImGuiColorEditFlags flags = ImGuiColorEditFlags.None)
+        public static bool InputFloatsFromColor4(string label, object obj, string properyName, ImGuiColorEditFlags flags = ImGuiColorEditFlags.None)
         {
             var input = obj.GetType().GetProperty(properyName);
             var inputValue = (float[])input.GetValue(obj);
@@ -347,7 +359,9 @@ namespace MapStudio.UI
             if (ImGui.ColorEdit4(label, ref vec, flags | ImGuiColorEditFlags.HDR | ImGuiColorEditFlags.Float))
             {
                 input.SetValue(obj, new float[4] { vec.X, vec.Y, vec.Z, vec.W });
+                return true;
             }
+            return false;
         }
 
         public static bool InputFromText(string label, object obj, string properyName, int bufferLength,

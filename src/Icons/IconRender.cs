@@ -93,9 +93,11 @@ namespace MapStudio.UI
             var image = (GLTexture2D)frameBuffer.Attachments[0];
             return image.ID;
 
-         /*   //Dispose frame buffer
-            frameBuffer.Dispoe();
-            frameBuffer.DisposeRenderBuffer();*/
+            //Dispose frame buffer
+            frameBuffer.Dispose();
+            frameBuffer.DisposeRenderBuffer();
+
+            return image.ID;
         }
     }
 }

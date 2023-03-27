@@ -4,6 +4,9 @@ using System.Text;
 using GLFrameworkEngine;
 using Toolbox.Core.ViewModels;
 using OpenTK;
+using UIFramework;
+using ImGuiNET;
+using Toolbox.Core;
 
 namespace MapStudio.UI
 {
@@ -14,6 +17,10 @@ namespace MapStudio.UI
     public class FileEditor
     {
         public virtual List<string> SubEditors { get; set; } = new List<string>();
+
+        public virtual Action RenderNewFileDialog { get; }
+
+        public virtual bool DisplayViewport => true;
 
         private string subEditor = "Default";
 
@@ -32,6 +39,16 @@ namespace MapStudio.UI
                     ReloadSubEditor();
                 }
             }
+        }
+
+        /// <summary>
+        /// Occurs when the file is being loaded into the viewer.
+        /// </summary>
+        public virtual void OnModelLoaded(ViewportRenderer viewport)
+        {
+            //Only switch out render if models are present
+            foreach (var file in viewport.Files)
+                file.Visible = false;
         }
 
         /// <summary>
@@ -68,6 +85,16 @@ namespace MapStudio.UI
             GLContext.ActiveContext.UpdateViewport = true;
         }
 
+        public virtual void DrawMainMenuBar()
+        {
+
+        }
+
+        public virtual void AfterLoaded()
+        {
+
+        }
+
         /// <summary>
         /// Creates a new file instance.
         /// </summary>
@@ -86,7 +113,41 @@ namespace MapStudio.UI
 
         public virtual void RenderSaveFileSettings()
         {
+            var fileFormat = this as IFileFormat;
+            if (fileFormat == null)
+                return;
 
+            if (fileFormat.FileInfo.ParentArchive != null)
+                fileFormat = fileFormat.FileInfo.ParentArchive as IFileFormat;
+
+            var comp = fileFormat.FileInfo.Compression == null ? "None" : fileFormat.FileInfo.Compression.ToString();
+            if (ImGui.BeginCombo("Compression", comp))
+            {
+                bool select = comp == "None";
+                if (ImGui.Selectable("None", select))
+                {
+                    fileFormat.FileInfo.Compression = null;
+                }
+                if (select)
+                    ImGui.SetItemDefaultFocus();
+
+                foreach (var compTypes in FileManager.GetCompressionFormats())
+                {
+                    select = comp == compTypes.ToString();
+                    if (ImGui.Selectable(compTypes.ToString(), select))
+                    {
+                        fileFormat.FileInfo.Compression = compTypes;
+                    }
+
+                    if (select)
+                        ImGui.SetItemDefaultFocus();
+                }
+                ImGui.EndCombo();
+            }
+            if (ImGui.DragInt("Yaz0 Level (1 fast, 9 slow)", ref Runtime.Yaz0CompressionLevel, 1, 1, 9))
+            {
+
+            }
         }
 
         /// <summary>
@@ -115,6 +176,7 @@ namespace MapStudio.UI
             windows.Add(Workspace.PropertyWindow);
             windows.Add(Workspace.ConsoleWindow);
             windows.Add(Workspace.AssetViewWindow);
+            windows.Add(Workspace.HelpWindow);
             windows.Add(Workspace.ToolWindow);
             windows.Add(Workspace.ViewportWindow);
             return windows;
@@ -193,6 +255,9 @@ namespace MapStudio.UI
         
         public virtual void AssetViewportDrop(AssetItem item, Vector2 screenCoords) { }
 
+        public virtual void OnMouseMove(MouseEventInfo mouseInfo) { }
+        public virtual void OnMouseDown(MouseEventInfo mouseInfo) { }
+        public virtual void OnMouseUp(MouseEventInfo mouseInfo) { }
         public virtual void OnKeyDown(KeyEventInfo keyEventInfo) { }
         public virtual void OnKeyUp(KeyEventInfo keyEventInfo) { }
         public virtual void OnMouseMove() { }

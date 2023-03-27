@@ -181,4 +181,16 @@
   <data name="Eraser" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\Eraser.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
+  <data name="AnimationTrackW" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\AnimationTrackW.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="AnimationTrackX" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\AnimationTrackX.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="AnimationTrackY" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\AnimationTrackY.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="AnimationTrackZ" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\AnimationTrackZ.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
 </root>

@@ -56,6 +56,8 @@ namespace MapStudio.UI
 
         public static void UpdateMouseState()
         {
+            var mouseInfo = new MouseEventInfo();
+
             //Prepare info
             if (ImGui.IsMouseDown(ImGuiMouseButton.Right))
                 MouseEventInfo.RightButton = ButtonState.Pressed;
